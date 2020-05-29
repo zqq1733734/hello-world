@@ -1,0 +1,49 @@
+from socket import *
+import threading #引入线程
+lock = threading.Lock()#工厂函数，返回一个全新的原始锁对象，
+#当一个线程获得锁后，后来的线程想要获得这个锁，需要等到当前线程释放锁
+openNum = 0 #打开端口数量
+threads = []#线程列表
+#端口扫描函数，参数为ip地址和端口号
+def portScanner(host,port):
+    global openNum
+    try:
+        s = socket(AF_INET,SOCK_STREAM)
+        s.connect((host,port))#系统调用connect进行连接
+        lock.acquire()
+        #当多个线程同时执行lock.acquire()时，只有一个线程能成功地获取锁，
+        #然后继续执行代码，其他线程就继续等待直到获得锁为止。
+        #获得锁的线程用完后一定要释放
+        #否则那些苦苦等待锁的线程将永远等待下去，成为死线程。
+        openNum+=1
+        print('[+] %d 打开状态!' % port)
+        lock.release()#释放锁
+        s.close()
+    except:
+        print("[+] %d 关闭状态！\n" % port)
+#主函数
+def main():
+    setdefaulttimeout(1)#设置超时时间
+    IP=input("请输入ip地址:")#输入目的ip
+    PORT=input("端口号:")#输入端口范围
+    list = PORT.split(",")#将输入的端口号用","分隔
+    for i in range(len(list)):
+        if list[i].isdigit():#检测字符串是否只由数字组成
+            t = threading.Thread(target=portScanner, args=(IP, int(list[i])))
+            #创建子线程
+            threads.append(t)
+            t.start()
+        else:
+            newlist = list[i].split("-")
+            startPort = int(newlist[0])
+            endPort = int(newlist[1])
+            for p in range(startPort, endPort):
+                t = threading.Thread(target=portScanner, args=(IP, p))
+                threads.append(t)
+                t.start()
+    for t in threads:
+        t.join()
+    print('[*] 扫描结束!')
+    print('[*] 共有 %d 个端口处于开放状态!' % (openNum))
+if __name__ == '__main__':
+    main()
